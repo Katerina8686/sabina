@@ -7,10 +7,13 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
@@ -22,27 +25,48 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+class WeatherResponse {
+    protected static void parseTimelineJson(String rawResult) throws ParseException {
+
+        if (rawResult==null || rawResult.isEmpty()) {
+            System.out.printf("No raw data%n");
+            return;
+        }
+
+        JSONObject timelineResponse = new JSONObject(rawResult);
+
+        JSONArray values=timelineResponse.getJSONArray("DailyForecasts");
+
+        for (int i = 0; i < values.length(); i++) {
+            JSONObject dayValue = values.getJSONObject(i);
+            JSONObject temperature = dayValue.getJSONObject("Temperature");
+            double min = temperature.getJSONObject("Minimum").getDouble("Value");
+            double minCelsius = (( 5 *(min - 32.0)) / 9.0);
+
+            double max = temperature.getJSONObject("Maximum").getDouble("Value");
+            double maxCelsius = (( 5 *(max - 32.0)) / 9.0);
+            String desc = dayValue.getJSONObject("Day").getString("IconPhrase");
+
+            // | В городе CITY на дату DATE ожидается WEATHER_TEXT, температура - TEMPERATURE
+            System.out.printf("| В городе Санкт-Петербург на дату %s ожидается %s, температура - %.1f - %.1f %n",
+                    dayValue.getString("Date").substring(0, 10), desc, minCelsius,
+                    maxCelsius);
+        }
+    }
+}
+
 public class Weather {
 
     public static void timelineRequestHttpClient() throws Exception {
         //set up the end point
         String apiEndPoint="https://dataservice.accuweather" +
                 ".com/forecasts/v1/daily/5day/295212?apikey=LunS7GOmWeIA8pFAUFyCqIY37E6Neg5Z&language=RU";
-        String location="Saint-Petersburg, RU";
-        String startDate=null;
-        String endDate=null;
+
 
         StringBuilder requestBuilder=new StringBuilder(apiEndPoint);
-        requestBuilder.append(URLEncoder.encode(location, StandardCharsets.UTF_8.toString()));
 
-        if (startDate!=null && !startDate.isEmpty()) {
-            requestBuilder.append("/").append(startDate);
-            if (endDate!=null && !endDate.isEmpty()) {
-                requestBuilder.append("/").append(endDate);
-            }
-        }
-
-        URIBuilder builder = new URIBuilder(requestBuilder.toString());
+        URIBuilder builder = new URIBuilder(apiEndPoint);
 
 
 
@@ -69,34 +93,7 @@ public class Weather {
             response.close();
         }
 
-        parseTimelineJson(rawResult);
-
-    }
-    private static void parseTimelineJson(String rawResult) {
-
-        if (rawResult==null || rawResult.isEmpty()) {
-            System.out.printf("No raw data%n");
-            return;
-        }
-
-        JSONObject timelineResponse = new JSONObject(rawResult);
-
-        JSONArray values=timelineResponse.getJSONArray("DailyForecasts");
-
-        System.out.printf("Date\tMaxTemp\tMinTemp\tPrecip\tSource%n");
-        for (int i = 0; i < values.length(); i++) {
-            JSONObject dayValue = values.getJSONObject(i);
-            ZoneId zoneId=ZoneId.of(timelineResponse.getString("timezone"));
-
-            ZonedDateTime datetime=ZonedDateTime.ofInstant(Instant.ofEpochSecond(dayValue.getLong("datetimeEpoch")),
-                    zoneId);
-
-            double maxtemp=dayValue.getDouble("tempmax");
-            double mintemp=dayValue.getDouble("tempmin");
-            double pop=dayValue.getDouble("precip");
-            String source=dayValue.getString("source");
-            System.out.printf("%s\t%.1f\t%.1f\t%.1f\t%s%n", datetime.format(DateTimeFormatter.ISO_LOCAL_DATE), maxtemp, mintemp, pop,source );
-        }
+        WeatherResponse.parseTimelineJson(rawResult);
     }
 
 
