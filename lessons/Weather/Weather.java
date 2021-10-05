@@ -15,6 +15,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
+import Sql.DatabaseRepository;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -47,6 +48,9 @@ class WeatherResponse {
             double max = temperature.getJSONObject("Maximum").getDouble("Value");
             double maxCelsius = (( 5 *(max - 32.0)) / 9.0);
             String desc = dayValue.getJSONObject("Day").getString("IconPhrase");
+
+            DatabaseRepository db = new DatabaseRepository();
+            db.insert("Санкт-Петербург", dayValue.getString("Date").substring(0, 10), desc, minCelsius);
 
             // | В городе CITY на дату DATE ожидается WEATHER_TEXT, температура - TEMPERATURE
             System.out.printf("| В городе Санкт-Петербург на дату %s ожидается %s, температура - %.1f - %.1f %n",
